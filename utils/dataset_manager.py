@@ -23,13 +23,13 @@ import hashlib
 
 # Ugly section to import necessary packages in autodl
 # To be replaced using Python packaging
-def _HERE(*args):
-    h = os.path.dirname(os.path.realpath(__file__))
-    return os.path.abspath(os.path.join(h, *args))
-BUNDLE_DIR = _HERE('../../autodl/codalab_competition_bundle/')
-STARTING_KIT_DIR = os.path.join(BUNDLE_DIR, 'AutoDL_starting_kit')
-INGESTION_DIR = os.path.join(STARTING_KIT_DIR, 'AutoDL_ingestion_program')
-sys.path.append(INGESTION_DIR)
+# def _HERE(*args):
+#     h = os.path.dirname(os.path.realpath(__file__))
+#     return os.path.abspath(os.path.join(h, *args))
+# BUNDLE_DIR = _HERE('../../autodl/codalab_competition_bundle/')
+# STARTING_KIT_DIR = os.path.join(BUNDLE_DIR, 'AutoDL_starting_kit')
+# INGESTION_DIR = os.path.join(STARTING_KIT_DIR, 'AutoDL_ingestion_program')
+# sys.path.append(INGESTION_DIR)
 
 from dataset import AutoDLDataset
 

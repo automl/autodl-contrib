@@ -334,7 +334,7 @@ matrix_spec {
     counter = 0
     labels_array = np.zeros((num_examples, self.output_dim))
     has_confidences = False
-    with tf.python_io.TFRecordWriter(path_to_tfrecord) as writer:
+    with tf.compat.v1.python_io.TFRecordWriter(path_to_tfrecord) as writer:
       for features, labels in data:
         if self.is_label_array or (self.label_format == 'DENSE'):
           # labels are stored in sparse format in TFRecords

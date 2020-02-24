@@ -18,9 +18,11 @@ more details on: https://www.nltk.org/data.html
 """
 
 import tensorflow as tf
+import tensorflow_datasets as tfds
 import numpy as np
 import os
 import sys
+import copy
 sys.path.append('../')
 from dataset_formatter import UniMediaDatasetFormatter
 
@@ -35,10 +37,14 @@ from sklearn.datasets import fetch_20newsgroups
 
 tf.flags.DEFINE_string('input_dir', '../../raw_datasets/text/',
                        "Directory containing text datasets.")
+# tf.flags.DEFINE_string('input_dir', '/home/dingsda/data/datasets/tfds/text/glue/cola/1.0.0/',
+#                        "Directory containing text datasets.")
 
-tf.flags.DEFINE_string('dataset_name', '20newsgroup', "Basename of dataset.")
+INPUT_DIR = '/home/dingsda/data/datasets/tfds/text'
 
-tf.flags.DEFINE_string('output_dir', '../../formatted_datasets/',
+tf.flags.DEFINE_string('dataset_name', 'glue/sst2', "Basename of dataset.")
+
+tf.flags.DEFINE_string('output_dir', '/home/dingsda/data/datasets/challenge/text',
                        "Output data directory.")
 
 tf.flags.DEFINE_string('max_num_examples_train', 'None',
@@ -49,7 +55,6 @@ tf.flags.DEFINE_string('max_num_examples_test', 'None',
 
 tf.flags.DEFINE_string('num_shards_train', '1', # TODO: sharding feature is not implemented yet
                        "Number of shards for training set.")
-
 tf.flags.DEFINE_string('num_shards_test', '1',
                        "Number of shards for training set.")
 
@@ -59,7 +64,7 @@ verbose = False
 
 # Global variables
 EMBEDDING_DIMENSION = 50
-GLOVE_DIR = '/usr/local/share/glove'
+GLOVE_DIR = '/home/dingsda/glove'
 GLOVE_WEIGHTS_FILE_PATH = os.path.join(GLOVE_DIR,
                                        f'glove.6B.{EMBEDDING_DIMENSION}d.txt')
 
@@ -106,7 +111,27 @@ def get_text_labels_pairs(dataset_name, subset='train', high_level_label=False):
     labels = [[label] for label in targets] # should be a list of lists
     return zip(text, labels)
   else:
-    raise ValueError("Unknown dataset name: {}".format(dataset_name))
+    dataset = tfds.load(name=dataset_name, split=subset, data_dir=INPUT_DIR, shuffle_files=False)
+    iter = dataset.make_one_shot_iterator()
+    el = iter.get_next()
+
+    labels = []
+    text = []
+    try:
+        with tf.Session() as sess:
+            while el:
+                res = sess.run(el)
+                labels.append([int(res['label'])])
+                if dataset_name == 'imdb_reviews':
+                    text.append(str(res['text'], 'utf-8'))
+                else:
+                    text.append(str(res['sentence'], 'utf-8'))
+    except:
+        pass
+    print(subset)
+    print(text)
+    print(labels)
+    return zip(text, labels)
 
 
 def download_GloVe_pretrained_weights():
@@ -210,13 +235,24 @@ if __name__ == '__main__':
     print("Couldn't parse max_num_examples_test...setting to None.")
     max_num_examples_test = None
 
-  high_level_label = False # True for highest hierarchy level label
-  if not high_level_label:
-    output_dim = 20
-    new_dataset_name = 'tweet'
-  else:
-    output_dim = 7
-    new_dataset_name = 'tsunami'
+  # high_level_label = False # True for highest hierarchy level label
+  # if not high_level_label:
+  #   output_dim = 20
+  #   new_dataset_name = 'tweet'
+  # else:
+  #   output_dim = 7
+  #   new_dataset_name = 'tsunami'
+  high_level_label = False
+  new_dataset_name = dataset_name
+  output_dim = 2
+
+  if dataset_name == 'glue/cola':
+    new_dataset_name = 'glue_cola'
+    output_dim = 2
+  elif dataset_name == 'glue/sst2':
+    new_dataset_name = 'glue_sst2'
+    output_dim = 2
+
   word2idx, idx2word, weights =\
     download_GloVe_pretrained_weights()
   text_labels_pairs_train =\
@@ -230,6 +266,8 @@ if __name__ == '__main__':
   features_labels_pairs_test =\
     get_features_labels_pairs(text_labels_pairs_test)
 
+  print(features_labels_pairs_train)
+  print(features_labels_pairs_test)
 
   col_count = EMBEDDING_DIMENSION
   row_count = 1

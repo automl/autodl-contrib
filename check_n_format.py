@@ -126,6 +126,73 @@ def is_formatted(output_dir):
     return os.path.exists(output_dir)
 
 
+def format_automatically(input_dir, train_size, num_channels):
+    input_dir = os.path.normpath(input_dir)
+    output_dir = input_dir + '_formatted'
+
+    # Read the meta-data in private.info.
+    metadata = read_metadata(input_dir)
+    fake_name = metadata['name']
+    print('\nDataset fake name: {}\n'.format(fake_name))
+    labels_df = format_image.get_labels_df(input_dir) # same function in format_video
+
+    print('First rows of labels file:')
+    print(labels_df.head())
+    print()
+
+    label_name = None
+    label_file = os.path.join(input_dir, 'label.name')
+    if os.path.exists(label_file):
+        label_name = pd.read_csv(label_file, header=None)
+        print('First rows of label names:')
+        print(label_name.head())
+        print()
+
+    # Compute simple statistics about the data (file number, etc.) and check consistency with the CSV file containing the labels.
+    res = compute_stats(labels_df, label_name=label_name)
+    print('Some statistics:')
+    print(res)
+    print()
+
+    # Ask user what he wants to be done
+    effective_sample_num = res['sample_num'] # if quick check, it'll be the number of examples to format for each class
+
+    if not is_formatted(output_dir):
+        print('No formatted version found, creating {} folder.'.format(output_dir))
+        os.mkdir(output_dir)
+
+    # booleans
+    do_run_baseline = False
+    do_manual_check = False
+
+    # format data in TFRecords
+    print('Label list:')
+    if label_name is None:
+        flat_label_list = None
+    else:
+        label_list = label_name.values.tolist()
+        flat_label_list = [item for sublist in label_list for item in sublist]
+    print(flat_label_list)
+    domain = 'image'
+    format_data(input_dir, output_dir, fake_name, effective_sample_num, train_size=train_size, num_channels=num_channels, classes_list=flat_label_list, domain=domain)
+    formatted_dataset_path = os.path.join(output_dir, fake_name)
+
+    # run baseline
+    if do_run_baseline:
+        code_dir = os.path.join(STARTING_KIT_DIR, 'AutoDL_sample_code_submission')
+        run_baseline(formatted_dataset_path, code_dir)
+        # TODO: save results in log file
+
+    # manual check
+    if do_manual_check:
+        manual_check(formatted_dataset_path, num_examples=10)
+
+    # Write metadata
+    res['tensor_shape'] = data_browser.get_tensor_shape(formatted_dataset_path)
+    public_info_file = os.path.join(output_dir, fake_name, 'public.info')
+    write_info(public_info_file, res)
+
+
 if __name__=="__main__":
 
     if len(argv)==2:

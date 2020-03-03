@@ -5,11 +5,12 @@ from sys import path
 
 import numpy as np
 import tensorflow as tf
+from more_itertools import flatten
 from PIL import Image
 
 from check_n_format import format_automatically
 from icgen import ICGen
-from icgen.datasets.names import DATASETS_SMALL
+from icgen.datasets.names import DATASETS
 
 ICGEN_DIR = "/data/aad/image_datasets/icgen/icgen"
 path.append(ICGEN_DIR)
@@ -24,10 +25,17 @@ def dataset_exists(dataset, dataset_dir):
         return False
 
 
-def convert_to_images(dataset, dataset_dir, dataset_name, split=None):
-    split_dir = os.path.join(dataset_dir, dataset_name + '/' + split)
+def convert_to_images(dataset,
+                      dataset_dir,
+                      dataset_name,
+                      sub_dir=None,
+                      split=None):
+    if sub_dir is not None:
+        split_dir = os.path.join(dataset_dir, dataset_name, sub_dir, split)
+    else:
+        split_dir = os.path.join(dataset_dir, dataset_name, split)
     if not os.path.isdir(split_dir):
-        os.mkdir(split_dir)
+        os.makedirs(split_dir)
 
     label_count_dict = {}
 
@@ -55,6 +63,9 @@ def convert_to_images(dataset, dataset_dir, dataset_name, split=None):
 
             image = Image.fromarray(data, color_mode)
             image.save(file_name, compress_level=0)
+
+    if sub_dir is not None:
+        dataset_name = sub_dir
 
     # write private.info
     info_text = "title : '" + str(dataset_name) +"' \n" \
@@ -88,8 +99,8 @@ def convert_to_images(dataset, dataset_dir, dataset_name, split=None):
 
 
 def convert_to_autodl(dataset_name, dataset_dir, goal_dir):
-    train_dir = os.path.join(dataset_dir, dataset_name + '/train')
-    test_dir = os.path.join(dataset_dir, dataset_name + '/test')
+    train_dir = os.path.join(dataset_dir, dataset_name, 'train')
+    test_dir = os.path.join(dataset_dir, dataset_name, 'test')
 
     if not os.path.isdir(train_dir):
         print('Conversion to AutoDL dataset failed')
@@ -117,7 +128,8 @@ def merge_train_test_folders(dataset, dataset_dir, goal_dir):
                              dataset + '/train_formatted/' + dataset)
     test_dir = os.path.join(dataset_dir,
                             dataset + '/test_formatted/' + dataset)
-    merged_dir = os.path.join(goal_dir, dataset)
+    merged_dir = os.path.join(
+        goal_dir, dataset)  # todo: perhaps specify sub_dir here as well
 
     if os.path.isdir(merged_dir):
         shutil.rmtree(merged_dir)
@@ -177,39 +189,68 @@ def write_num_samples_to_info_file(dataset, goal_dir, num_samples):
 
 
 if __name__ == "__main__":
-    dataset_names = ["caltech101", "cifar10", "emnist/balanced"]
-
     info_dir = '/data/aad/image_datasets/icgen/icgen/icgen/infos'
-    dataset_dir = '/data/aad/image_datasets/icgen/downloaded_datasets'
+    dataset_dir = '/data/aad/image_datasets/icgen/datasets'
     goal_dir = '/data/aad/image_datasets/augmented_datasets'
 
-    for dataset_name in dataset_names:
-        ic_benchmark = ICGen(
-            data_path=dataset_dir,
-            min_resolution=16,
-            max_resolution=512,
-            max_log_res_deviation=
-            1,  # Sample only 1 log resolution from the native one
-            min_classes=2,
-            max_classes=100,
-            min_examples_per_class=20,
-            max_examples_per_class=100_000,
-        )
+    ic_generator = ICGen(
+        data_path=dataset_dir,
+        min_resolution=16,
+        max_resolution=512,
+        max_log_res_deviation=
+        1,  # Sample only 1 log resolution from the native one
+        min_classes=2,
+        max_classes=100,
+        min_examples_per_class=20,
+        max_examples_per_class=100_000,
+    )
 
-        task = ic_benchmark.sample_task(dataset=dataset_name,
-                                        augment=True,
-                                        resize=True)
+    n_augmented_per_dataset = 49
+    all_competition_datasets = []
+    for dataset in DATASETS:
+        original = ic_generator.sample_task(dataset=dataset,
+                                            augment=False,
+                                            resize=True)
+        dataset_identifier = original.identifier["dataset"] + "_" + "_".join(
+            list(map(str, flatten(original.representation.items()))))
+        dataset_identifier += "_original"
 
-        convert_to_images(dataset=task.development_data,
+        convert_to_images(dataset=original.development_data,
                           dataset_dir=dataset_dir,
-                          dataset_name=dataset_name,
+                          dataset_name=dataset,
+                          sub_dir=dataset_identifier,
                           split='train')
 
-        convert_to_images(dataset=task.test_data,
+        convert_to_images(dataset=original.test_data,
                           dataset_dir=dataset_dir,
-                          dataset_name=dataset_name,
+                          dataset_name=dataset,
+                          sub_dir=dataset_identifier,
                           split='test')
 
-        convert_to_autodl(dataset_name=dataset_name,
-                          dataset_dir=dataset_dir,
+        convert_to_autodl(dataset_name=dataset_identifier,
+                          dataset_dir=os.path.join(dataset_dir, dataset),
                           goal_dir=goal_dir)
+
+        for _ in range(n_augmented_per_dataset):
+            augmented = ic_generator.sample_task(dataset=dataset,
+                                                 augment=True,
+                                                 resize=True)
+            dataset_identifier = augmented.identifier[
+                "dataset"] + "_" + "_".join(
+                    list(map(str, flatten(augmented.representation.items()))))
+
+            convert_to_images(dataset=original.development_data,
+                              dataset_dir=dataset_dir,
+                              dataset_name=dataset,
+                              sub_dir=dataset_identifier,
+                              split='train')
+
+            convert_to_images(dataset=original.test_data,
+                              dataset_dir=dataset_dir,
+                              dataset_name=dataset,
+                              sub_dir=dataset_identifier,
+                              split='test')
+
+            convert_to_autodl(dataset_name=dataset_identifier,
+                              dataset_dir=os.path.join(dataset_dir, dataset),
+                              goal_dir=goal_dir)

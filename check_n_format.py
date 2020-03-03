@@ -3,25 +3,24 @@
 
 # Usage: `python3 check_n_format path/to/dataset`
 
-import argparse
 import glob
 import os
 from sys import argv, path
 
+#import dataset_manager
 import pandas as pd
-import tensorflow as tf
 import yaml
 
 #import run_local_test
 import data_browser
-import dataset_manager
 import format_image
 import format_video
+from utils.image import format_image
 
 path.append('utils')
 path.append('utils/image')
 path.append('utils/video')
-STARTING_KIT_DIR = '../autodl/codalab_competition_bundle/AutoDL_starting_kit'
+STARTING_KIT_DIR = '../autodl/codalab_competition_bundle/autodl_starting_kit_stable'
 LOG_FILE = 'baseline_log.txt'
 path.append(STARTING_KIT_DIR)
 path.append(os.path.join(STARTING_KIT_DIR, 'AutoDL_ingestion_program'))

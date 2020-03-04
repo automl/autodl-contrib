@@ -11,10 +11,10 @@ from sys import argv, path
 import pandas as pd
 import yaml
 
-#import run_local_test
-import data_browser
 import format_image
 import format_video
+#import run_local_test
+from utils import data_browser
 from utils.image import format_image
 
 path.append('utils')

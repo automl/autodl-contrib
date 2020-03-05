@@ -226,6 +226,9 @@ if __name__=="__main__":
             augmented = ic_generator.sample_task(dataset=dataset, augment=True, resize=True)
             dataset_identifier = augmented.identifier["dataset"] + "_" + "_".join(list(map(str, flatten(augmented.representation.items()))))
 
+            if "/" in dataset_identifier:
+                dataset_identifier = dataset_identifier.split("/")[1]  # e.g. emnist/mnist_num... -> mnist_num
+
             convert_to_images(dataset=original.development_data,
                               dataset_dir=args.dataset_dir,
                               dataset_name=dataset,

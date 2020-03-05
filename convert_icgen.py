@@ -1,21 +1,23 @@
-import os
-import tensorflow as tf
 import argparse
+import os
+import shutil
+import sys
 from sys import path
+
 import numpy as np
-ICGEN_DIR = "/data/aad/image_datasets/icgen/icgen"
-path.append(ICGEN_DIR)
+
+import tensorflow as tf
+from check_n_format import format_automatically
 from icgen import ICGen
 from icgen.datasets.names import DATASETS
-
-import shutil
-from check_n_format import format_automatically
-from PIL import Image
-import sys
 from more_itertools import flatten
+from PIL import Image
 
+ICGEN_DIR = "/data/aad/image_datasets/icgen/icgen"
+path.append(ICGEN_DIR)
 
 tf.compat.v1.enable_eager_execution()
+
 
 def dataset_exists(dataset, dataset_dir):
     if os.path.isdir(os.path.join(dataset_dir, dataset)):
@@ -24,7 +26,11 @@ def dataset_exists(dataset, dataset_dir):
         return False
 
 
-def convert_to_images(dataset, dataset_dir, dataset_name, sub_dir=None, split=None):
+def convert_to_images(dataset,
+                      dataset_dir,
+                      dataset_name,
+                      sub_dir=None,
+                      split=None):
     if sub_dir is not None:
         split_dir = os.path.join(dataset_dir, dataset_name, sub_dir, split)
     else:
@@ -41,17 +47,20 @@ def convert_to_images(dataset, dataset_dir, dataset_name, sub_dir=None, split=No
         else:
             label_count_dict[label] = 0
 
-        file_name = os.path.join(split_dir, split + '-' + str(label) + '-' + str(label_count_dict[label]) + '.png')
+        file_name = os.path.join(
+            split_dir, split + '-' + str(label) + '-' +
+            str(label_count_dict[label]) + '.png')
 
         # store images/videos
-        if len(data.shape) == 3:        # image
-            if data.shape[2] == 1:      # grayscale
+        if len(data.shape) == 3:  # image
+            if data.shape[2] == 1:  # grayscale
                 color_mode = 'L'
                 data = np.squeeze(data)
-            elif data.shape[2] == 3:    # RGB
+            elif data.shape[2] == 3:  # RGB
                 color_mode = 'RGB'
             else:
-                raise ValueError('unknown number of channels: ' + str(data.shape[2]))
+                raise ValueError('unknown number of channels: ' +
+                                 str(data.shape[2]))
 
             image = Image.fromarray(data, color_mode)
             image.save(file_name, compress_level=0)
@@ -84,8 +93,9 @@ def convert_to_images(dataset, dataset_dir, dataset_name, sub_dir=None, split=No
     with open(labels_file, 'w') as f:
         f.write('FileName,Labels\n')
         for label, count in label_count_dict.items():
-            for i in range(int(count)+1):
-                label_text = split + '-' + str(label) + '-' + str(i) + '.png' + ',' + str(label) + '\n'
+            for i in range(int(count) + 1):
+                label_text = split + '-' + str(label) + '-' + str(
+                    i) + '.png' + ',' + str(label) + '\n'
                 f.write(label_text)
 
 
@@ -115,9 +125,12 @@ def convert_to_autodl(dataset_name, dataset_dir, goal_dir):
 
 
 def merge_train_test_folders(dataset, dataset_dir, goal_dir):
-    train_dir = os.path.join(dataset_dir, dataset + '/train_formatted/' + dataset)
-    test_dir = os.path.join(dataset_dir, dataset + '/test_formatted/' + dataset)
-    merged_dir = os.path.join(goal_dir, dataset) # todo: perhaps specify sub_dir here as well
+    train_dir = os.path.join(dataset_dir,
+                             dataset + '/train_formatted/' + dataset)
+    test_dir = os.path.join(dataset_dir,
+                            dataset + '/test_formatted/' + dataset)
+    merged_dir = os.path.join(
+        goal_dir, dataset)  # todo: perhaps specify sub_dir here as well
 
     if os.path.isdir(merged_dir):
         shutil.rmtree(merged_dir)
@@ -125,29 +138,39 @@ def merge_train_test_folders(dataset, dataset_dir, goal_dir):
     # copy training and test data
     train_subdir = dataset + '.data/train'
     test_subdir = dataset + '.data/test'
-    shutil.copytree(os.path.join(test_dir, test_subdir), os.path.join(merged_dir, test_subdir))
-    shutil.copytree(os.path.join(train_dir, train_subdir), os.path.join(merged_dir, train_subdir))
+    shutil.copytree(os.path.join(test_dir, test_subdir),
+                    os.path.join(merged_dir, test_subdir))
+    shutil.copytree(os.path.join(train_dir, train_subdir),
+                    os.path.join(merged_dir, train_subdir))
 
     # copy metadata
-    for elem in ['public.info', dataset+'.solution']:
-        shutil.copy(os.path.join(test_dir, elem), os.path.join(merged_dir, elem))
+    for elem in ['public.info', dataset + '.solution']:
+        shutil.copy(os.path.join(test_dir, elem),
+                    os.path.join(merged_dir, elem))
 
 
 def fix_num_samples(dataset, goal_dir):
-    num_samples_train = get_num_samples_from_textproto_file(dataset, goal_dir, True)
-    num_samples_test = get_num_samples_from_textproto_file(dataset, goal_dir, False)
-    write_num_samples_to_info_file(dataset, goal_dir, num_samples_train+num_samples_test)
+    num_samples_train = get_num_samples_from_textproto_file(
+        dataset, goal_dir, True)
+    num_samples_test = get_num_samples_from_textproto_file(
+        dataset, goal_dir, False)
+    write_num_samples_to_info_file(dataset, goal_dir,
+                                   num_samples_train + num_samples_test)
 
 
 def get_num_samples_from_textproto_file(dataset, goal_dir, use_train):
     if use_train:
-        textproto_file = os.path.join(goal_dir, dataset + '/' + dataset + '.data/train/metadata.textproto')
+        textproto_file = os.path.join(
+            goal_dir,
+            dataset + '/' + dataset + '.data/train/metadata.textproto')
     else:
-        textproto_file = os.path.join(goal_dir, dataset + '/' + dataset + '.data/test/metadata.textproto')
+        textproto_file = os.path.join(
+            goal_dir,
+            dataset + '/' + dataset + '.data/test/metadata.textproto')
 
     with open(textproto_file, 'r') as f:
         lines = f.readlines()
-        num_samples = int(lines[1].replace('\n',' ').split(' ')[1])
+        num_samples = int(lines[1].replace('\n', ' ').split(' ')[1])
 
     return num_samples
 
@@ -166,44 +189,67 @@ def write_num_samples_to_info_file(dataset, goal_dir, num_samples):
         f.writelines(lines)
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     p = argparse.ArgumentParser(
         "",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
-    p.add_argument("--dataset_dir", type=str, default="/data/aad/image_datasets/icgen/datasets")
-    p.add_argument("--goal_dir", type=str, default="/data/aad/image_datasets/augmented_datasets")
+    p.add_argument("--dataset_dir",
+                   type=str,
+                   default="/data/aad/image_datasets/icgen/datasets")
+    p.add_argument("--goal_dir",
+                   type=str,
+                   default="/data/aad/image_datasets/augmented_datasets")
     p.add_argument("--task_id", default=None)
 
     args = p.parse_args()
 
     ic_generator = ICGen(
-                        data_path=args.dataset_dir,
-                        min_resolution=16,
-                        max_resolution=512,
-                        max_log_res_deviation=1, # Sample only 1 log resolution from the native one
-                        min_classes=2,
-                        max_classes=100,
-                        min_examples_per_class=20,
-                        max_examples_per_class=100_000,
-                        )
+        data_path=args.dataset_dir,
+        min_resolution=16,
+        max_resolution=512,
+        max_log_res_deviation=
+        1,  # Sample only 1 log resolution from the native one
+        min_classes=2,
+        max_classes=100,
+        min_examples_per_class=20,
+        max_examples_per_class=100_000,
+    )
 
-    datasets_to_exclude = ["caltech_birds2010", "binary_alpha_digits", "caltech101"] #  already done
-    datasets_list = [x for x in DATASETS if x not in datasets_to_exclude]
+    #datasets_to_exclude = ["caltech_birds2010", "binary_alpha_digits", "caltech101"] #  already done
+    datasets_to_include = [
+        "cycle_gan/apple2orange", "cycle_gan/maps", "cycle_gan/vangogh2photo",
+        "cycle_gan/iphone2dslr_flower", "emnist/byclass", "emnist/mnist",
+        "eurosat/rgb", "mnist", "visual_domain_decathlon/daimlerpedcls",
+        "visual_domain_decathlon/vgg-flowers", "visual_domain_decathlon/gtsrb",
+        "cycle_gan/facades", "cycle_gan/summer2winter_yosemite",
+        "cycle_gan/ukiyoe2photo", "cmaterdb/telugu", "emnist/balanced",
+        "visual_domain_decathlon/ucf101", "visual_domain_decathlon/dtd",
+        "cycle_gan/horse2zebra", "svhn_cropped", "stanford_dogs",
+        "oxford_iiit_pet", "imagenette", "deep_weeds", "citrus_leaves",
+        "cats_vs_dogs", "binary_alpha_digits", "cifar10_1"
+    ]
+
+    datasets_list = [x for x in DATASETS if x in datasets_to_include]
     n_augmented_per_dataset = 49
 
     if args.task_id is not None:
-        index = int(args.task_id)-1
+        index = int(args.task_id) - 1
         datasets_list = [datasets_list[index]]
 
     for dataset in datasets_list:
-        original = ic_generator.sample_task(dataset=dataset, augment=False, resize=True)
-        dataset_identifier = original.identifier["dataset"] + "_" + "_".join(list(map(str, flatten(original.representation.items()))))
+        original = ic_generator.sample_task(dataset=dataset,
+                                            augment=False,
+                                            resize=True)
+        dataset_identifier = original.identifier["dataset"] + "_" + "_".join(
+            list(map(str, flatten(original.representation.items()))))
         dataset_identifier += "_original"
 
         if "/" in dataset_identifier:
-            dataset_identifier = dataset_identifier.split("/")[1]  # e.g. emnist/mnist_num... -> mnist_num
+            dataset_identifier = dataset_identifier.split(
+                "/")[0] + "_" + dataset_identifier.split("/")[
+                    1]  # e.g. emnist/mnist_num... -> emnist_mnist_num
 
         convert_to_images(dataset=original.development_data,
                           dataset_dir=args.dataset_dir,
@@ -221,13 +267,17 @@ if __name__=="__main__":
                           dataset_dir=os.path.join(args.dataset_dir, dataset),
                           goal_dir=args.goal_dir)
 
-
         for _ in range(n_augmented_per_dataset):
-            augmented = ic_generator.sample_task(dataset=dataset, augment=True, resize=True)
-            dataset_identifier = augmented.identifier["dataset"] + "_" + "_".join(list(map(str, flatten(augmented.representation.items()))))
+            augmented = ic_generator.sample_task(dataset=dataset,
+                                                 augment=True,
+                                                 resize=True)
+            dataset_identifier = augmented.identifier[
+                "dataset"] + "_" + "_".join(
+                    list(map(str, flatten(augmented.representation.items()))))
 
             if "/" in dataset_identifier:
-                dataset_identifier = dataset_identifier.split("/")[1]  # e.g. emnist/mnist_num... -> mnist_num
+                dataset_identifier = dataset_identifier.split(
+                    "/")[0] + "_" + dataset_identifier.split("/")[1]
 
             convert_to_images(dataset=original.development_data,
                               dataset_dir=args.dataset_dir,
@@ -242,10 +292,6 @@ if __name__=="__main__":
                               split='test')
 
             convert_to_autodl(dataset_name=dataset_identifier,
-                              dataset_dir=os.path.join(args.dataset_dir, dataset),
+                              dataset_dir=os.path.join(args.dataset_dir,
+                                                       dataset),
                               goal_dir=args.goal_dir)
-
-
-
-
-
